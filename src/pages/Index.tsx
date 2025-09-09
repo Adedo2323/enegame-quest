@@ -8,6 +8,8 @@ import { BattleArena } from "@/components/battles/BattleArena";
 import { RankingBoard } from "@/components/ranking/RankingBoard";
 import { SimulationTest } from "@/components/simulation/SimulationTest";
 import { LoginForm } from "@/components/auth/LoginForm";
+import { ChatWidget } from "@/components/chat/ChatWidget";
+import { AppNavigation } from "@/components/navigation/AppNavigation";
 import { Button } from "@/components/ui/button";
 import { Sword, Users, TrendingUp } from "lucide-react";
 
@@ -126,12 +128,22 @@ export default function Index() {
   const [showQuestionResult, setShowQuestionResult] = useState(false);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [currentSubject, setCurrentSubject] = useState<string | null>(null);
+  const [userStats, setUserStats] = useState(mockStats);
+  const [questionsInSession, setQuestionsInSession] = useState(5);
 
   const handleStartMission = () => {
+    setCurrentSubject('matematica');
+    setCurrentQuestionIndex(0);
+    setQuestionsInSession(5);
     setCurrentView('question');
   };
 
-  const handleStartSubject = () => {
+  const handleStartSubject = (subjectId: string) => {
+    setCurrentSubject(subjectId);
+    setCurrentQuestionIndex(0);
+    setQuestionsInSession(10);
     setCurrentView('question');
   };
 
@@ -155,13 +167,54 @@ export default function Index() {
 
   const handleAnswer = (answer: number, isCorrect: boolean) => {
     setSelectedAnswer(answer);
+    
+    // Update user stats based on answer
+    if (isCorrect) {
+      setUserStats(prev => ({
+        ...prev,
+        weeklyXP: prev.weeklyXP + 25,
+        questionsAnswered: prev.questionsAnswered + 1,
+        averageAccuracy: Math.round(((prev.averageAccuracy * prev.questionsAnswered + 100) / (prev.questionsAnswered + 1)))
+      }));
+      setCurrentUser((prev: any) => ({
+        ...prev,
+        xp: prev.xp + 25,
+        coins: prev.coins + 5
+      }));
+    } else {
+      setUserStats(prev => ({
+        ...prev,
+        questionsAnswered: prev.questionsAnswered + 1,
+        averageAccuracy: Math.round(((prev.averageAccuracy * prev.questionsAnswered) / (prev.questionsAnswered + 1)))
+      }));
+    }
+    
     setTimeout(() => {
       setShowQuestionResult(true);
     }, 500);
   };
 
   const handleNextQuestion = () => {
-    setCurrentView('dashboard');
+    const nextIndex = currentQuestionIndex + 1;
+    
+    if (nextIndex >= questionsInSession) {
+      // Session completed
+      setCurrentView('dashboard');
+      setCurrentQuestionIndex(0);
+      setCurrentSubject(null);
+      
+      // Update streak if from daily mission
+      if (currentSubject === 'matematica' && questionsInSession === 5) {
+        setCurrentUser((prev: any) => ({
+          ...prev,
+          streak: prev.streak + 1
+        }));
+      }
+    } else {
+      // Next question
+      setCurrentQuestionIndex(nextIndex);
+    }
+    
     setShowQuestionResult(false);
     setSelectedAnswer(null);
   };
@@ -196,10 +249,23 @@ export default function Index() {
     <div className="min-h-screen bg-background">
       <Navbar user={currentUser} onLogout={() => setCurrentView('login')} />
         <div className="p-4 lg:p-8">
+          <div className="flex items-center justify-between mb-6">
+            <Button 
+              variant="outline" 
+              onClick={handleBackToDashboard}
+              className="flex items-center space-x-2"
+            >
+              ← Voltar ao Dashboard
+            </Button>
+            <div className="text-sm text-muted-foreground">
+              {currentSubject && `Estudando: ${mockSubjects.find(s => s.id === currentSubject)?.name}`}
+            </div>
+          </div>
+          
           <QuestionCard
             question={mockQuestion}
-            questionNumber={1}
-            totalQuestions={5}
+            questionNumber={currentQuestionIndex + 1}
+            totalQuestions={questionsInSession}
             timeRemaining={180}
             onAnswer={handleAnswer}
             onNext={handleNextQuestion}
@@ -213,7 +279,7 @@ export default function Index() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navbar user={mockUser} />
+      <Navbar user={currentUser} onLogout={() => setCurrentView('login')} />
       
       <main className="max-w-7xl mx-auto p-4 lg:p-8 space-y-8">
         {/* Welcome Section */}
@@ -227,7 +293,7 @@ export default function Index() {
         </div>
 
         {/* Stats Overview */}
-        <StatsOverview stats={mockStats} />
+        <StatsOverview stats={userStats} />
 
         {/* Daily Mission */}
         <section>
@@ -282,12 +348,22 @@ export default function Index() {
               <SubjectCard 
                 key={subject.id} 
                 subject={subject} 
-                onStart={handleStartSubject}
+                onStart={() => handleStartSubject(subject.id)}
               />
             ))}
           </div>
         </section>
       </main>
+
+      {/* Chat Widget */}
+      <ChatWidget isLoggedIn={!!currentUser} />
+      
+      {/* Mobile Navigation */}
+      <AppNavigation 
+        currentView={currentView} 
+        onNavigate={setCurrentView} 
+        user={currentUser} 
+      />
     </div>
   );
 }

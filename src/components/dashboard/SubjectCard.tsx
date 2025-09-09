@@ -15,7 +15,7 @@ interface SubjectCardProps {
     accuracy: number;
     estimatedTime: string;
   };
-  onStart: () => void;
+  onStart: (subjectId: string) => void;
 }
 
 export function SubjectCard({ subject, onStart }: SubjectCardProps) {
@@ -74,7 +74,7 @@ export function SubjectCard({ subject, onStart }: SubjectCardProps) {
 
           <Button 
             size="sm" 
-            onClick={onStart}
+            onClick={() => onStart(subject.id)}
             className="bg-gradient-primary hover:opacity-90 transition-smooth"
           >
             <BookOpen className="w-4 h-4 mr-1" />
